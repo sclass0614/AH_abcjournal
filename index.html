@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>우리집 DayCareCenter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Google Fonts 추가 - Noto Sans KR 폰트를 사용하여 한글 표시 최적화 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="style.css"/>
+    <!-- Supabase 클라이언트 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <!-- Supabase 관련 기능을 정의한 자바스크립트 파일 추가 -->
+    <script src="supabase.js"></script>
+  </head>
+
+  <body>
+    <!-- 로딩 오버레이 -->
+    <div id="loadingOverlay">
+      <div class="loader"></div>
+      <div>데이터를 처리중입니다...</div>
+    </div>
+
+    <!-- ==========================================================================
+       [4] Header & Navigation
+       ========================================================================== -->
+    <header>
+      <h1>
+        <i class="fas fa-home header-icon"></i>
+        우리집 DayCareCenter
+      </h1>
+    </header>
+
+    <!-- 커스텀 알림 모달 -->
+    <div id="customAlertModal" class="custom-alert">
+      <div class="custom-alert-content">
+        <div class="custom-alert-header">
+          <i class="fas fa-info-circle"></i>
+          <span>알림</span>
+          <button class="close-alert">&times;</button>
+        </div>
+        <div class="custom-alert-body">
+          <p id="alertMessage"></p>
+            </div>
+        <div class="custom-alert-footer">
+          <button class="alert-confirm-btn" onclick="closeCustomAlert()">
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 커스텀 확인 모달 -->
+    <div id="customConfirmModal" class="custom-alert">
+      <div class="custom-alert-content">
+        <div class="custom-alert-header confirm-header">
+          <i class="fas fa-question-circle"></i>
+          <span>확인</span>
+          <button class="close-alert" onclick="closeCustomConfirm(false)">&times;</button>
+        </div>
+        <div class="custom-alert-body">
+          <p id="confirmMessage"></p>
+          </div>
+        <div class="custom-alert-footer">
+          <button class="alert-cancel-btn" onclick="closeCustomConfirm(false)">
+            취소
+          </button>
+          <button class="alert-confirm-btn confirm-btn" onclick="closeCustomConfirm(true)">
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 회원 선택 모달 -->
+    <div id="memberSelectModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>회원 선택</h3>
+          <span class="close-member-modal">&times;</span>
+        </div>
+        <input
+          type="text"
+          id="memberSearchBox"
+          class="search-box"
+          placeholder="회원 검색 (이름 또는 회원번호)..."
+        />
+        <div class="table-container modal-table-container">
+          <table class="list-table" id="member-list-table">
+            <thead>
+              <tr>
+                <th>회원번호</th>
+                <th>회원명</th>
+              </tr>
+            </thead>
+            <tbody id="member-list-body">
+              <!-- 회원 데이터가 여기에 동적으로 로드됩니다 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 직원명 선택 모달 -->
+    <div id="staffSelectModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>직원명 선택</h3>
+          <span class="close-staff-modal">&times;</span>
+        </div>
+        <input
+          type="text"
+          id="staffSearchBox"
+          class="search-box"
+          placeholder="직원명 검색 (이름 또는 직원번호)..."
+        />
+        <div class="table-container modal-table-container">
+          <table class="list-table" id="staff-list-table">
+            <thead>
+              <tr>
+                <th>직원번호</th>
+                <th>이름</th>
+              </tr>
+            </thead>
+            <tbody id="staff-list-body">
+              <!-- 직원명 데이터가 여기에 동적으로 로드됩니다 -->
+            </tbody>
+          </table>
+        </div>
+        <div class="button-container">
+          <button id="resetManagerBtn">
+            초기화
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <main>
+      <section class="page active" id="page2">
+        <div class="header-container">
+          <h2>Journal Report</h2>
+          <div class="date-search-container">
+            <input
+              type="date"
+              id="datePickerPage2"
+              onchange="journalSearch()"
+            />
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button id="btn-journal-search">
+                <i class="fas fa-sync-alt"></i> 업데이트
+              </button>
+              <input
+                type="text"
+                id="employeeFilter"
+                placeholder="직원번호필터링"
+                onkeyup="filterJournalAndPlanByEmployee()"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily Journal 테이블 -->
+        <div class="panel thick-border">
+          <div class="table-container">
+            <table id="daily-journal-table">
+              <thead>
+                <tr>
+                  <th onclick="sortJournalTable(0)">날짜</th>
+                  <th onclick="sortJournalTable(1)">시작시간</th>
+                  <th onclick="sortJournalTable(2)">종료시간</th>
+                  <th onclick="sortJournalTable(3)">직원명</th>
+                  <th onclick="sortJournalTable(4)">활동명</th>
+                  <th onclick="sortJournalTable(5)">소분류코드</th>
+                  <th onclick="sortJournalTable(6)">회원번호</th>
+                  <th onclick="sortJournalTable(7)">이름</th>
+                  <th onclick="sortJournalTable(8)">참여도</th>
+                  <th onclick="sortJournalTable(9)">수행도</th>
+                  <th onclick="sortJournalTable(10)">만족도</th>
+                  <th onclick="sortJournalTable(11)">관찰사항</th>
+                </tr>
+              </thead>
+              <tbody id="journal-table-body">
+                <!-- Journal 데이터 동적 로드 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Journal 입력 영역: Plan to Journal -->
+        <div class="three-panel">
+          <!-- Daily Plan 요약 테이블 -->
+          <div class="panel" id="daily-plan-container">
+            <h3>Daily Plan</h3>
+            <div class="table-container plan-table-container">
+              <table id="daily-plan-summary-table">
+                <thead>
+                  <tr>
+                    <th onclick="sortPlanSummaryTable(0)">날짜</th>
+                    <th onclick="sortPlanSummaryTable(1)">시작시간</th>
+                    <th onclick="sortPlanSummaryTable(2)">종료시간</th>
+                    <th onclick="sortPlanSummaryTable(3)">직원명</th>
+                    <th onclick="sortPlanSummaryTable(4)">활동명</th>
+                    <th onclick="sortPlanSummaryTable(5)">소분류코드</th>
+                  </tr>
+                </thead>
+                <tbody id="plan-table-body">
+                  <!-- 요약 데이터 동적 로드 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Plan to Journal 입력 폼 -->
+          <div class="panel" id="plan-to-journal-container">
+            <h3>Plan to Journal</h3>
+            <div class="row-2col">
+              <div class="col-2">
+                <label>날짜(조회)</label>
+                <input
+                  type="text"
+                  id="journalDate"
+                  placeholder="우측상단 날짜 선택 후 조회"
+                  readonly
+                />
+              </div>
+              <div class="col-2" style="visibility: hidden;">
+                <label>일지_ID(자동입력)</label>
+                <input
+                  type="text"
+                  id="journalID"
+                  placeholder="일지_ID 입력중..."
+                  readonly
+                  style="height: 31px;"
+                />
+              </div>
+            </div>
+            <div class="row-2col">
+              <div class="col-2">
+                <label>시작시간</label>
+                <input
+                  type="text"
+                  id="journalStartTime"
+                  placeholder="시간 입력중... ex)0920"
+                />
+              </div>
+              <div class="col-2">
+                <label>종료시간</label>
+                <input
+                  type="text"
+                  id="journalEndTime"
+                  placeholder="시간 입력중... ex)1800"
+                />
+              </div>
+            </div>
+            <div class="row-2col">
+              <div class="col-2">
+                <label>직원명</label>
+                <input
+                  type="text"
+                  id="journalManager"
+                  placeholder="직원명 입력중..."
+                  readonly
+                />
+                <input
+                  type="hidden"
+                  id="journalEmployeeNumber"
+                />
+              </div>
+              <div class="col-2">
+                <label>활동명</label>
+                <input
+                  type="text"
+                  id="journalActivityName"
+                  placeholder="활동명 입력중..."
+                  readonly
+                />
+              </div>
+              <div class="col-2">
+                <label>소분류코드</label>
+                <input
+                  type="text"
+                  id="journalCode"
+                  placeholder="소분류코드 선택..."
+                  readonly
+                />
+              </div>
+            </div>
+            <div class="row-2col">
+              <div class="col-2">
+                <label>회원번호</label>
+                <input
+                  type="text"
+                  id="journalMemberNumber"
+                  placeholder="성함을 클릭하세요"
+                  readonly
+                />
+              </div>
+              <div class="col-2">
+                <label>성함</label>
+                <input
+                  type="text"
+                  id="journalName"
+                  placeholder="클릭!"
+                  readonly
+                />
+              </div>
+            </div>
+            <div class="score-container">
+              <label class="score-label">참여도</label>
+            <input
+                type="number"
+                id="journalParticipation"
+                class="score-input"
+                min="0"
+                max="5"
+                value="5"
+              />
+              <label class="score-label">수행도</label>
+            <input
+                type="number"
+                id="journalPerformance"
+                class="score-input"
+                min="0"
+                max="5"
+                value="5"
+              />
+              <label class="score-label">만족도</label>
+              <input
+                type="number"
+                id="journalSatisfaction"
+                class="score-input"
+                min="0"
+                max="5"
+                value="5"
+            />
+          </div>
+            <label>관찰사항</label>
+            <textarea id="journalObservations" rows="1"></textarea>
+          </div>
+          </div>
+
+        <!-- Page 2 하단 버튼 -->
+        <div class="bottom-buttons">
+              <button
+            id="btn-journal-reset"
+            onclick="resetAllFields()"
+              >
+            초기화
+              </button>
+              <button
+            id="btn-journal-save-new"
+              >
+            신규저장
+              </button>
+              <button
+            id="btn-journal-modify"
+            class="btn btn-primary btn-sm"
+              >
+            기존 Journal 수정
+              </button>
+            <button
+            id="btn-journal-delete"
+            onclick="onDeleteJournal(); disableButtonTemporarily('btn-journal-delete')"
+              >
+            기존 Journal 삭제
+            </button>
+          </div>
+      </section>
+    </main>
+    <script>
+      let dailyPlanAll = []; // 모든 계획 데이터를 저장하는 배열
+      let dailyjournalAll = []; // 모든 일지 데이터를 저장하는 배열
+      let memberall = []; // 모든 회원 데이터를 저장하는 배열
+
+      // Supabase 기능 호출을 위한 유틸리티 함수들
+      async function getPlanAllPromise() {
+          return await getPlanAll();
+      }
+
+      async function getJournalAllPromise() {
+          return await getJournalAll();
+      }
+
+      async function getMembersPromise() {
+          return await getAllMembers();
+      }
+
+      async function initialize() {
+          showLoading(); // 초기화 시작 시 로딩 표시
+          
+          try {
+              // 네 가지 작업을 병렬로 실행하기 위해 Promise.all 사용
+              const results = await Promise.all([
+                  getPlanAllPromise(),
+                  getJournalAllPromise(),
+                  getMembersPromise()
+              ]);
+              
+              // 결과 할당
+              dailyPlanAll = results[0];
+              dailyjournalAll = results[1];
+              memberall = results[2];
+              
+              // 데이터 로드 후 테이블 생성
+              makeTable_plan();
+              makeTable_journal();
+              console.log("모든 데이터 로드 완료");
+          } catch (error) {
+              console.error("초기화 중 오류 발생:", error);
+              showCustomAlert("데이터를 불러오는데 실패했습니다: " + error);
+          } finally {
+              hideLoading(); // 성공 여부와 관계없이 로딩 표시 제거
+          }
+      }
+
+      async function getPlanAll_id() {
+          showLoading();
+          try {
+              dailyPlanAll = await getPlanAllPromise();
+              makeTable_plan();
+              console.log("계획 데이터 새로고침 완료");
+          } catch (error) {
+              console.error("데이터 로드 실패:", error);
+              showCustomAlert("데이터를 불러오는데 실패했습니다: " + error);
+          } finally {
+              hideLoading();
+          }
+      }
+
+      async function getJournalAll_id() {
+          showLoading();
+          try {
+              console.log("getJournalAll_id: getJournalAllPromise 호출 전");
+              dailyjournalAll = await getJournalAllPromise();
+              console.log("getJournalAll_id: 데이터 로드 완료, 항목 수:", dailyjournalAll.length);
+              console.log("일지 데이터 새로고침 완료");
+              return true;
+          } catch (error) {
+              console.error("일지 데이터 로드 실패:", error);
+              showCustomAlert("일지 데이터를 불러오는데 실패했습니다: " + error);
+              return false;
+          } finally {
+              hideLoading();
+          }
+      }
+
+      async function getMember_id() {
+          showLoading();
+          try {
+              memberall = await getMembersPromise();
+              console.log("회원 데이터 새로고침 완료");
+          } catch (error) {
+              console.error("회원 데이터 로드 실패:", error);
+              showCustomAlert("회원 데이터를 불러오는데 실패했습니다: " + error);
+          } finally {
+              hideLoading();
+          }
+      }
+
+      function makeTable_plan() {
+        const selectedDate = changeDate(document.getElementById("datePickerPage2").value);
+        console.log("선택된 날짜:", selectedDate);
+        console.log("전체 데이터:", dailyPlanAll);
+
+        // 테이블 내용 초기화
+        const tableBody = document.getElementById('plan-table-body');
+        tableBody.innerHTML = ''; // 테이블 초기화
+        
+        // 선택된 날짜가 없으면 return
+        if (!selectedDate) {
+          console.log("날짜가 선택되지 않았습니다.");
+          return;
+        }
+        
+        // 날짜에 해당하는 계획 데이터 필터링
+        const filteredPlans = dailyPlanAll.filter((plan) => {
+          console.log("계획 날짜:", plan.날짜, "변환된 날짜:", plan.날짜);
+          return plan.날짜 == selectedDate; // 등호 두 개만 사용
+        });
+        console.log("필터링된 계획 데이터:", filteredPlans.length + "개 항목");
+        
+        if (filteredPlans.length === 0) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 6; // 컬럼 수에 맞게 설정
+          cell.textContent = '해당 날짜의 계획 데이터가 없습니다.';
+          cell.style.textAlign = 'center';
+          cell.style.padding = '10px';
+          row.appendChild(cell);
+          tableBody.appendChild(row);
+          
+          // 입력 필드의 날짜 설정
+          if (document.getElementById("planDate")) {
+            document.getElementById("planDate").value = selectedDate;
+          }
+          return;
+        }
+        
+        // 직원명와 시작시간 기준으로 정렬
+        filteredPlans.sort((a, b) => {
+          // 먼저 직원명로 정렬
+          const managerA = String(a.직원명 || '');
+          const managerB = String(b.직원명 || '');
+          const managerCompare = managerA.localeCompare(managerB);
+          
+          // 직원명가 같으면 시작시간으로 정렬
+          if (managerCompare === 0) {
+            // 시간을 숫자로 변환하여 비교
+            const startTimeA = String(a.시작시간 || '').padStart(4, '0');
+            const startTimeB = String(b.시작시간 || '').padStart(4, '0');
+            const timeA = timeToNumber(startTimeA);
+            const timeB = timeToNumber(startTimeB);
+            return timeA - timeB;
+          }
+          
+          return managerCompare;
+        });
+        
+        filteredPlans.forEach(plan => {
+          const row = document.createElement('tr');
+          
+          // 필요한 데이터 추출
+          const columns = ['날짜', '시작시간', '종료시간', '직원명', '활동명', '생활영역'];
+          
+          columns.forEach(key => {
+            const cell = document.createElement('td');
+            if (key === '날짜') {
+              // 날짜 포맷 처리 (필요시)
+              cell.textContent = plan[key] || '';
+            } else if (key === '시작시간' || key === '종료시간') {
+              // 시간 데이터를 4자리 문자열로 표시 (작은따옴표 제거)
+              cell.textContent = String(plan[key] || '').padStart(4, '0');
+            } else {
+              cell.textContent = plan[key] || '';
+            }
+            row.appendChild(cell);
+          });
+          
+          // 더블클릭 이벤트: Plan to Journal 입력 필드에 데이터 전달
+          row.addEventListener('dblclick', () => {
+            // Plan to Journal 입력 필드에 데이터 전달
+            resetAllFields();
+            document.getElementById('journalDate').value = plan.날짜 || ''; // 날짜
+            document.getElementById('journalStartTime').value = String(plan.시작시간 || '').padStart(4, '0'); // 시작시간
+            document.getElementById('journalEndTime').value = String(plan.종료시간 || '').padStart(4, '0'); // 종료시간
+            document.getElementById('journalEmployeeNumber').value = plan.직원번호 || ''; // 직원번호
+            document.getElementById('journalManager').value = plan.직원명 || ''; // 직원명
+            document.getElementById('journalActivityName').value = plan.활동명 || ''; // 활동명
+            document.getElementById('journalCode').value = plan.생활영역 || ''; // 생활영역(코드)
+          });
+          
+          tableBody.appendChild(row);
+        });
+        
+        // 입력 필드의 날짜 설정
+        if (document.getElementById("planDate")) {
+          document.getElementById("planDate").value = selectedDate;
+        }
+      }
+
+      function makeTable_journal() {
+          // 직원번호 필터링 함수 호출
+          filterJournalByEmployee();
+      }
+
+      function journalSearch() {
+        const date = document.getElementById('datePickerPage2').value;
+        const dateYmd = changeDate(date); // YYYY-MM-DD를 YYYYMMDD로 변환
+        
+        // 직원 필터 초기화
+        document.getElementById('employeeFilter').value = '';
+        
+        // Daily Plan Summary 테이블 업데이트
+        makeTable_plan();
+        
+        // Daily Journal 테이블 업데이트
+        makeTable_journal();
+        
+        // 일지 데이터 필터링 (로그용)
+        const filteredJournal = dailyjournalAll.filter(journal => journal.날짜 == dateYmd);
+        console.log("필터링된 일지 데이터:", filteredJournal);
+      }
+
+      // 로딩 표시 함수
+      function showLoading() {
+          const loadingOverlay = document.getElementById('loadingOverlay');
+          if (loadingOverlay) {
+              loadingOverlay.style.display = 'flex';
+          }
+      }
+
+      function hideLoading() {
+          const loadingOverlay = document.getElementById('loadingOverlay');
+          if (loadingOverlay) {
+              loadingOverlay.style.display = 'none';
+          }
+      }
+
+      // 커스텀 알림 함수
+      let confirmCallback = null;
+
+      function showCustomAlert(message) {
+          const modal = document.getElementById('customAlertModal');
+          const messageElement = document.getElementById('alertMessage');
+          messageElement.textContent = message;
+          modal.style.display = 'flex';
+      }
+
+      function closeCustomAlert() {
+          const modal = document.getElementById('customAlertModal');
+          modal.style.display = 'none';
+      }
+
+      function showCustomConfirm(message, onConfirm) {
+          const modal = document.getElementById('customConfirmModal');
+          const messageElement = document.getElementById('confirmMessage');
+          messageElement.textContent = message;
+          confirmCallback = onConfirm;
+          modal.style.display = 'flex';
+      }
+
+      function closeCustomConfirm(result) {
+          const modal = document.getElementById('customConfirmModal');
+          modal.style.display = 'none';
+          if (confirmCallback && result) {
+              confirmCallback();
+          }
+          confirmCallback = null;
+      }
+
+      // 버튼 상태 업데이트 함수
+      function updateButtonStates(saveEnabled, modifyEnabled, deleteEnabled) {
+          // 버튼 요소 가져오기
+          const saveButton = document.getElementById('btn-journal-save-new');
+          const modifyButton = document.getElementById('btn-journal-modify');
+          const deleteButton = document.getElementById('btn-journal-delete');
+          
+          // 버튼 상태 설정
+          if (saveButton) saveButton.disabled = !saveEnabled;
+          if (modifyButton) modifyButton.disabled = !modifyEnabled;
+          if (deleteButton) deleteButton.disabled = !deleteEnabled;
+          
+          console.log("버튼 상태 업데이트:", { saveEnabled, modifyEnabled, deleteEnabled });
+      }
+
+      // 페이지 로드 완료 후 초기화 실행
+      document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split("T")[0];
+        document.getElementById("datePickerPage2").value = today;
+
+        // 초기 버튼 상태 설정 - 저장 버튼만 활성화
+        updateButtonStates(true, false, false);
+
+        // 초기화 함수 호출 (한 번만 호출)
+        initialize();
+        
+        // 회원명 입력 필드 클릭 이벤트 리스너
+        document.getElementById('journalName').addEventListener('click', showMemberModal);
+        
+        // 회원 검색 이벤트 리스너
+        document.getElementById('memberSearchBox').addEventListener('input', function() {
+            const selectedDate = changeDate(document.getElementById("datePickerPage2").value);
+            updateMemberList(selectedDate);
+        });
+
+        // 모달 닫기 버튼 이벤트 리스너
+        document.querySelector('.close-member-modal').addEventListener('click', closeMemberModal);
+
+        // 모달 외부 클릭 시 닫기
+        window.addEventListener('click', function(event) {
+            const alertModal = document.getElementById('customAlertModal');
+            const confirmModal = document.getElementById('customConfirmModal');
+            if (event.target === alertModal) {
+                closeCustomAlert();
+            } else if (event.target === confirmModal) {
+                closeCustomConfirm(false);
+            }
+        });
+
+        // 신규저장 버튼 이벤트 리스너
+        document.getElementById("btn-journal-save-new").addEventListener("click", async function() {
+            try {
+                await appendJournal_id(); // 함수 내부에서 이미 모든 처리를 함
+            } catch (error) {
+                console.error("[오류] 신규저장 버튼 클릭 이벤트:", error);
+            } finally {
+                disableButtonTemporarily('btn-journal-save-new');
+            }
+        });
+
+        // 기존 Journal 수정 버튼 이벤트 리스너
+        document.getElementById("btn-journal-modify").addEventListener("click", async function() {
+            try {
+                await updateJournal_id(); // 함수 내부에서 이미 모든 처리를 함
+            } catch (error) {
+                console.error("[오류] 수정 버튼 클릭 이벤트:", error);
+            } finally {
+                disableButtonTemporarily('btn-journal-modify');
+            }
+        });
+
+        // 기존 Journal 삭제 버튼 이벤트 리스너
+        document.getElementById("btn-journal-delete").addEventListener("click", async function() {
+            try {
+                await deleteJournalrow_id(); // 함수 내부에서 이미 모든 처리를 함
+            } catch (error) {
+                console.error("[오류] 삭제 버튼 클릭 이벤트:", error);
+            } finally {
+                disableButtonTemporarily('btn-journal-delete');
+            }
+        });
+
+        // 업데이트 버튼 이벤트 리스너
+        document.getElementById('btn-journal-search').addEventListener('click', async function() {
+            // 직원 필터 초기화
+            document.getElementById('employeeFilter').value = '';
+            
+            await initialize();
+            journalSearch(); // 현재 선택된 날짜로 테이블 필터링
+        });
+        const tableHeaders = document.querySelectorAll('#daily-journal-table th, #daily-plan-summary-table th');
+        tableHeaders.forEach(header => {
+          header.style.cursor = 'pointer';
+          header.title = '클릭하여 정렬';
+        });
+      });
+
+      function changeDate(dateStr) {
+          // dateStr이 undefined나 null이면 빈 문자열 반환
+          if (!dateStr) return '';
+
+          // dateStr이 문자열이 아니면 문자열로 변환
+          if (typeof dateStr !== 'string') {
+            dateStr = String(dateStr);
+          }
+
+          // yyyy-mm-dd 형식의 날짜를 yyyymmdd 형식으로 변환
+          return dateStr.replace(/-/g, "");
+        }
+        
+      // 일지(Journal) 입력 필드 유효성 검사 함수
+      function validateJournalInputs() {
+          const requiredFields = [
+            { id: "journalDate", name: "날짜" },
+            { id: "journalStartTime", name: "시작시간" },
+            { id: "journalEndTime", name: "종료시간" },
+            { id: "journalActivityName", name: "활동명" },
+            { id: "journalCode", name: "소분류코드" },
+            { id: "journalManager", name: "직원명" },
+            { id: "journalMemberNumber", name: "회원번호" },
+            { id: "journalName", name: "회원명" },
+            { id: "journalObservations", name: "관찰사항" }
+          ];
+
+          // 모든 필수 필드 검사
+          for (const field of requiredFields) {
+            const value = document.getElementById(field.id).value.trim();
+            if (!value) {
+              showCustomAlert(`${field.name}을(를) 입력해주세요.`);
+              document.getElementById(field.id).focus();
+            return false;
+          }
+        }
+
+          // 시간 형식 검사
+          const timeRegex = /^([0-1][0-9]|2[0-3])[0-5][0-9]$/;
+          let startTime = document.getElementById("journalStartTime").value.padStart(4, '0');
+          let endTime = document.getElementById("journalEndTime").value.padStart(4, '0');
+
+          if (!timeRegex.test(startTime)) {
+            showCustomAlert("시작시간을 올바른 형식(HHMM)으로 입력해주세요.\n예: 0900, 1330");
+            document.getElementById("journalStartTime").focus();
+            return false;
+          }
+
+          if (!timeRegex.test(endTime)) {
+            showCustomAlert("종료시간을 올바른 형식(HHMM)으로 입력해주세요.\n예: 0900, 1330");
+            document.getElementById("journalEndTime").focus();
+            return false;
+          }
+
+          if (parseInt(startTime) >= parseInt(endTime)) {
+            showCustomAlert("종료시간은 시작시간보다 늦어야 합니다.");
+            document.getElementById("journalEndTime").focus();
+            return false;
+          }
+
+          // 점수 범위 검사 (참여도, 수행도, 만족도)
+          const scoreFields = [
+            { id: "journalParticipation", name: "참여도" },
+            { id: "journalPerformance", name: "수행도" },
+            { id: "journalSatisfaction", name: "만족도" }
+          ];
+
+          for (const field of scoreFields) {
+            const value = parseInt(document.getElementById(field.id).value);
+            if (isNaN(value) || value < 0 || value > 5) {
+              showCustomAlert(`${field.name}는 0에서 5 사이의 값이어야 합니다.`);
+              document.getElementById(field.id).focus();
+              return false;
+            }
+          }
+
+        return true;
+      }
+
+        /**
+         * UUID는 Supabase에서 자동 생성되므로 별도의 ID 생성 함수가 필요 없음
+         * 기존 makeNewId() 함수는 사용하지 않음
+         */
+       
+      // 모든 입력 필드 초기화 함수
+      function resetAllFields() {
+          // 모든 입력 필드 초기화
+          document.getElementById("journalID").value = "";
+          document.getElementById("journalDate").value = "";
+          document.getElementById("journalStartTime").value = "";
+          document.getElementById("journalEndTime").value = "";
+          document.getElementById("journalEmployeeNumber").value = "";
+          document.getElementById("journalManager").value = "";
+          document.getElementById("journalActivityName").value = "";
+          document.getElementById("journalCode").value = "";
+          document.getElementById("journalMemberNumber").value = "";
+          document.getElementById("journalName").value = "";
+          document.getElementById("journalParticipation").value = "5";
+          document.getElementById("journalPerformance").value = "5";
+          document.getElementById("journalSatisfaction").value = "5";
+          document.getElementById("journalObservations").value = "";
+
+          // 버튼 상태 업데이트 - 저장 활성화, 수정/삭제 비활성화
+          updateButtonStates(true, false, false);
+          
+          console.log("모든 입력 필드가 초기화되었습니다.");
+      }
+      
+      // 일지 데이터 저장 함수
+      async function appendJournal_id() {
+          console.log("[시작] appendJournal_id");
+          
+          // 입력 필드 유효성 검사
+          if (!validateJournalInputs()) {
+              console.log("[종료] appendJournal_id - 유효성 검사 실패");
+              return false;
+          }
+          
+          // 저장할 데이터 준비 (객체 형식으로 변경)
+          const journalData = {
+              날짜: parseInt(document.getElementById("journalDate").value), // 날짜 (int4 형식으로 변환)
+              시작시간: document.getElementById("journalStartTime").value, // 시작시간
+              종료시간: document.getElementById("journalEndTime").value, // 종료시간
+              직원번호: document.getElementById("journalEmployeeNumber").value, // 직원번호
+              직원명: document.getElementById("journalManager").value, // 직원명
+              활동명: document.getElementById("journalActivityName").value, // 활동명
+              코드: document.getElementById("journalCode").value, // 코드
+              회원번호: document.getElementById("journalMemberNumber").value, // 회원번호
+              회원명: document.getElementById("journalName").value, // 회원명
+              참여도: parseInt(document.getElementById("journalParticipation").value), // 참여도
+              수행도: parseInt(document.getElementById("journalPerformance").value), // 수행도
+              만족도: parseInt(document.getElementById("journalSatisfaction").value), // 만족도
+              관찰사항: document.getElementById("journalObservations").value // 관찰사항
+          };
+          
+          showLoading();
+          
+          try {
+              console.log("[진행] appendJournal_id - 서버에 저장 요청 전송");
+              const result = await appendJournal(journalData);
+              console.log("[진행] appendJournal_id - 서버 응답:", result);
+              
+              if (result) {
+                  console.log("[진행] appendJournal_id - 저장 성공");
+                  showCustomAlert("일지가 성공적으로 저장되었습니다.");
+                  
+                  // 일지 데이터 새로고침
+                  console.log("[진행] appendJournal_id - 일지 데이터 새로고침 시작");
+                  const journalData = await getJournalAllPromise();
+                  console.log("[진행] appendJournal_id - 새로 받은 일지 데이터 개수:", journalData.length);
+                  dailyjournalAll = journalData;
+                  
+                  // 테이블 다시 만들기
+                  console.log("[진행] appendJournal_id - 테이블 다시 만들기");
+                  makeTable_journal();
+                  
+                  // 입력 필드 초기화
+                  resetAllFields();
+                  
+                  console.log("[종료] appendJournal_id - 모든 작업 성공");
+                  return true;
+              } else {
+                  console.log("[종료] appendJournal_id - 서버 측 처리 실패");
+                  showCustomAlert("일지 저장에 실패했습니다.");
+                  return false;
+              }
+          } catch (error) {
+              console.error("[오류] appendJournal_id:", error);
+              showCustomAlert("일지 저장 중 오류가 발생했습니다: " + error);
+              return false;
+          } finally {
+              hideLoading();
+          }
+      }
+      
+      // 일지 수정 함수
+      async function updateJournal_id() {
+          const journalId = document.getElementById("journalID").value;
+          console.log("[시작] updateJournal_id - 일지 ID:", journalId);
+          
+          if (!journalId) {
+              showCustomAlert("수정할 일지를 선택해주세요.");
+              console.log("[종료] updateJournal_id - 선택된 일지 없음");
+              return false;
+          }
+
+          if (!validateJournalInputs()) {
+              console.log("[종료] updateJournal_id - 유효성 검사 실패");
+              return false;
+          }
+
+          // 수정할 데이터 준비 (객체 형식으로 변경)
+          const journalData = {
+              날짜: parseInt(document.getElementById("journalDate").value), // 날짜 (int4 형식으로 변환)
+              시작시간: document.getElementById("journalStartTime").value, // 시작시간
+              종료시간: document.getElementById("journalEndTime").value, // 종료시간
+              직원번호: document.getElementById("journalEmployeeNumber").value, // 직원번호
+              직원명: document.getElementById("journalManager").value, // 직원명
+              활동명: document.getElementById("journalActivityName").value, // 활동명
+              코드: document.getElementById("journalCode").value, // 코드
+              회원번호: document.getElementById("journalMemberNumber").value, // 회원번호
+              회원명: document.getElementById("journalName").value, // 회원명
+              참여도: parseInt(document.getElementById("journalParticipation").value), // 참여도
+              수행도: parseInt(document.getElementById("journalPerformance").value), // 수행도
+              만족도: parseInt(document.getElementById("journalSatisfaction").value), // 만족도
+              관찰사항: document.getElementById("journalObservations").value // 관찰사항
+          };
+          
+          try {
+              // 확인 대화상자 표시
+              return new Promise((resolve) => {
+                  showCustomConfirm("선택한 일지를 수정하시겠습니까?", async () => {
+                      showLoading();
+                      try {
+                          console.log("[진행] updateJournal_id - 서버에 수정 요청 전송");
+                          const result = await updateJournal(journalId, journalData);
+                          console.log("[진행] updateJournal_id - 서버 응답:", result);
+                          
+                          if (result) {
+                              console.log("[진행] updateJournal_id - 수정 성공");
+                              showCustomAlert("일지가 성공적으로 수정되었습니다.");
+                              
+                              // 일지 데이터 새로고침
+                              console.log("[진행] updateJournal_id - 일지 데이터 새로고침 시작");
+                              const journalData = await getJournalAllPromise();
+                              console.log("[진행] updateJournal_id - 새로 받은 일지 데이터 개수:", journalData.length);
+                              dailyjournalAll = journalData;
+                              
+                              // 테이블 다시 만들기
+                              console.log("[진행] updateJournal_id - 테이블 다시 만들기");
+                              makeTable_journal();
+                              
+                              // 입력 필드 초기화
+                              resetAllFields();
+                              
+                              console.log("[종료] updateJournal_id - 모든 작업 성공");
+                              resolve(true);
+                          } else {
+                              console.log("[종료] updateJournal_id - 서버 측 처리 실패");
+                              showCustomAlert("일지 수정에 실패했습니다.");
+                              resolve(false);
+                          }
+                      } catch (error) {
+                          console.error("[오류] updateJournal_id:", error);
+                          showCustomAlert("일지 수정 중 오류가 발생했습니다: " + error);
+                          resolve(false);
+                      } finally {
+                          hideLoading();
+                      }
+                  });
+              });
+          } catch (error) {
+              console.error("[오류] updateJournal_id - 예상치 못한 오류:", error);
+              showCustomAlert("일지 수정 중 오류가 발생했습니다: " + error);
+              return false;
+          }
+      }
+
+      // 일지 삭제 함수
+      async function deleteJournalrow_id() {
+          const journalId = document.getElementById("journalID").value;
+          console.log("[시작] deleteJournalrow_id - 일지 ID:", journalId);
+          
+          if (!journalId) {
+              showCustomAlert("삭제할 일지를 선택해주세요.");
+              console.log("[종료] deleteJournalrow_id - 선택된 일지 없음");
+              return false;
+          }
+          
+          try {
+              // 확인 대화상자 표시
+              return new Promise((resolve) => {
+                  showCustomConfirm("선택한 일지를 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.", async () => {
+                      showLoading();
+                      try {
+                          console.log("[진행] deleteJournalrow_id - 서버에 삭제 요청 전송");
+                          const result = await deleteJournalRow(journalId);
+                          console.log("[진행] deleteJournalrow_id - 서버 응답:", result);
+                          
+                          if (result) {
+                              console.log("[진행] deleteJournalrow_id - 삭제 성공");
+                              showCustomAlert("일지가 성공적으로 삭제되었습니다.");
+                              
+                              // 일지 데이터 새로고침
+                              console.log("[진행] deleteJournalrow_id - 일지 데이터 새로고침 시작");
+                              const journalData = await getJournalAllPromise();
+                              console.log("[진행] deleteJournalrow_id - 새로 받은 일지 데이터 개수:", journalData.length);
+                              dailyjournalAll = journalData;
+                              
+                              // 테이블 다시 만들기
+                              console.log("[진행] deleteJournalrow_id - 테이블 다시 만들기");
+                              makeTable_journal();
+                              
+                              // 입력 필드 초기화
+                              resetAllFields();
+                              
+                              console.log("[종료] deleteJournalrow_id - 모든 작업 성공");
+                              resolve(true);
+                          } else {
+                              console.log("[종료] deleteJournalrow_id - 서버 측 처리 실패");
+                              showCustomAlert("일지 삭제에 실패했습니다.");
+                              resolve(false);
+                          }
+                      } catch (error) {
+                          console.error("[오류] deleteJournalrow_id:", error);
+                          showCustomAlert("일지 삭제 중 오류가 발생했습니다: " + error);
+                          resolve(false);
+                      } finally {
+                          hideLoading();
+                      }
+                  });
+              });
+          } catch (error) {
+              console.error("[오류] deleteJournalrow_id - 예상치 못한 오류:", error);
+              showCustomAlert("일지 삭제 중 오류가 발생했습니다: " + error);
+              return false;
+          }
+      }
+
+      // 회원 선택 모달 관련 함수들
+      function showMemberModal() {
+          const modal = document.getElementById('memberSelectModal');
+          const selectedDate = changeDate(document.getElementById("datePickerPage2").value);
+          
+          // 모달 표시
+          modal.style.display = "block";
+          
+          // 회원 목록 필터링 및 표시
+          updateMemberList(selectedDate);
+          
+          // 검색창 포커스
+          document.getElementById('memberSearchBox').focus();
+      }
+
+      function updateMemberList(selectedDate) {
+          const tableBody = document.getElementById('member-list-body');
+          const searchText = document.getElementById('memberSearchBox').value.toLowerCase();
+          tableBody.innerHTML = '';
+          
+          console.log("전체 회원 데이터:", memberall);
+          console.log("선택된 날짜:", selectedDate);
+          
+          // 선택된 날짜에 해당하는 회원만 필터링
+          const filteredMembers = memberall.filter(member => {
+              const admissionDate = member.입소일 || ''; // 입소일
+              const dischargeDate = member.퇴소일 || '99991231'; // 퇴소일 (없으면 먼 미래 날짜)
+              const memberName = (member.회원명 || '').toLowerCase(); // 회원명
+              const memberNumber = (member.회원번호 || '').toLowerCase(); // 회원번호
+              
+              // 회원번호가 "상담회원"인 경우 제외
+              if (memberNumber === '상담회원') {
+                  return false;
+              }
+              
+              console.log("회원 정보:", {
+                  name: member.회원명,
+                  number: member.회원번호,
+                  admissionDate,
+                  dischargeDate,
+                  selectedDate
+              });
+              
+              // 검색어 필터링
+              const matchesSearch = memberName.includes(searchText) || 
+                                  memberNumber.includes(searchText);
+              
+              // 날짜 조건 확인
+              const meetsDateCriteria = (admissionDate === '' || selectedDate >= admissionDate) && 
+                                      (dischargeDate === '' || dischargeDate === '99991231' || selectedDate <= dischargeDate);
+              
+              console.log("필터링 결과:", {
+                  matchesSearch,
+                  meetsDateCriteria,
+                  included: matchesSearch && meetsDateCriteria
+              });
+              
+              return matchesSearch && meetsDateCriteria;
+          });
+          
+          console.log("필터링된 회원:", filteredMembers);
+          
+          // 필터링된 회원 목록 표시 (회원번호와 회원명만)
+          filteredMembers.forEach(member => {
+              const row = document.createElement('tr');
+              
+              // 회원번호와 회원명 표시
+              const memberNumber = document.createElement('td');
+              memberNumber.textContent = member.회원번호 || '';
+              row.appendChild(memberNumber);
+              
+              const memberName = document.createElement('td');
+              memberName.textContent = member.회원명 || '';
+              row.appendChild(memberName);
+              
+              // 행 더블클릭 이벤트로 변경
+              row.addEventListener('dblclick', () => {
+                  document.getElementById('journalMemberNumber').value = member.회원번호 || ''; // 회원번호
+                  document.getElementById('journalName').value = member.회원명 || ''; // 회원명
+                  closeMemberModal();
+              });
+              
+              tableBody.appendChild(row);
+          });
+      }
+
+      function closeMemberModal() {
+          document.getElementById('memberSelectModal').style.display = "none";
+      }
+
+      // 테이블 정렬 관련 변수
+      let journalSortColumn = -1;
+      let journalSortDirection = 'asc';
+      let planSortColumn = -1;
+      let planSortDirection = 'asc';
+
+      // Journal 테이블 정렬 함수
+      function sortJournalTable(columnIndex) {
+          const table = document.getElementById('daily-journal-table');
+          const tbody = table.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+
+          // 정렬 방향 결정
+          if (journalSortColumn === columnIndex) {
+              journalSortDirection = journalSortDirection === 'asc' ? 'desc' : 'asc';
+          } else {
+              journalSortColumn = columnIndex;
+              journalSortDirection = 'asc';
+          }
+
+          // 데이터 정렬
+          rows.sort((a, b) => {
+              const aValue = a.cells[columnIndex].textContent;
+              const bValue = b.cells[columnIndex].textContent;
+
+              // 숫자인 경우 숫자 비교
+              if (!isNaN(aValue) && !isNaN(bValue)) {
+                  return journalSortDirection === 'asc' 
+                      ? Number(aValue) - Number(bValue)
+                      : Number(bValue) - Number(aValue);
+              }
+
+              // 문자열 비교
+              return journalSortDirection === 'asc'
+                  ? aValue.localeCompare(bValue)
+                  : bValue.localeCompare(aValue);
+          });
+
+          // 정렬된 행을 테이블에 다시 추가
+          rows.forEach(row => tbody.appendChild(row));
+      }
+
+      // Plan 테이블 정렬 함수
+      function sortPlanSummaryTable(columnIndex) {
+          const table = document.getElementById('daily-plan-summary-table');
+          const tbody = table.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+
+          // 정렬 방향 결정
+          if (planSortColumn === columnIndex) {
+              planSortDirection = planSortDirection === 'asc' ? 'desc' : 'asc';
+          } else {
+              planSortColumn = columnIndex;
+              planSortDirection = 'asc';
+          }
+
+          // 데이터 정렬
+          rows.sort((a, b) => {
+              const aValue = a.cells[columnIndex].textContent;
+              const bValue = b.cells[columnIndex].textContent;
+
+              // 숫자인 경우 숫자 비교
+              if (!isNaN(aValue) && !isNaN(bValue)) {
+                  return planSortDirection === 'asc' 
+                      ? Number(aValue) - Number(bValue)
+                      : Number(bValue) - Number(aValue);
+              }
+
+              // 문자열 비교
+              return planSortDirection === 'asc'
+                  ? aValue.localeCompare(bValue)
+                  : bValue.localeCompare(aValue);
+          });
+
+          // 정렬된 행을 테이블에 다시 추가
+          rows.forEach(row => tbody.appendChild(row));
+      }
+
+      // 직원번호로 필터링하는 함수
+      function filterJournalByEmployee() {
+          const employeeFilter = document.getElementById('employeeFilter').value.trim();
+          console.log("[필터] 직원번호 필터 적용:", employeeFilter);
+          
+          // 현재 선택된 날짜 가져오기
+          const selectedDate = changeDate(document.getElementById("datePickerPage2").value);
+          if (!selectedDate) {
+              console.log("[필터] 날짜가 선택되지 않았습니다.");
+              return;
+          }
+          
+          // 테이블 내용 초기화
+          const tableBody = document.getElementById('journal-table-body');
+          tableBody.innerHTML = '';
+          
+          // 날짜에 해당하는 일지 데이터 필터링
+          let filteredJournals = dailyjournalAll.filter((journal) => {
+              return journal.날짜 == selectedDate; // 날짜 필터링 (등호 2개 유지)
+          });
+          
+          // 직원번호로 추가 필터링
+          if (employeeFilter !== '') {
+              filteredJournals = filteredJournals.filter((journal) => {
+                  return String(journal.직원번호 || '').includes(employeeFilter) || 
+                         String(journal.직원명 || '').toLowerCase().includes(employeeFilter.toLowerCase());
+              });
+          }
+          
+          console.log("[필터] 필터링된 일지 데이터:", filteredJournals.length + "개 항목");
+          
+          if (filteredJournals.length === 0) {
+              const row = document.createElement('tr');
+              const cell = document.createElement('td');
+              cell.colSpan = 12; // 컬럼 수에 맞게 설정
+              cell.textContent = employeeFilter ? 
+                                '해당 직원의 일지 데이터가 없습니다.' : 
+                                '해당 날짜의 일지 데이터가 없습니다.';
+              cell.style.textAlign = 'center';
+              cell.style.padding = '10px';
+              row.appendChild(cell);
+              tableBody.appendChild(row);
+              return;
+          }
+          
+          // 직원명과 시작시간 기준으로 정렬
+          filteredJournals.sort((a, b) => {
+              // 먼저 직원명으로 정렬
+              const managerA = String(a.직원명 || '');
+              const managerB = String(b.직원명 || '');
+              const managerCompare = managerA.localeCompare(managerB);
+              
+              // 직원명이 같으면 시작시간으로 정렬
+              if (managerCompare === 0) {
+                  // 시간을 숫자로 변환하여 비교
+                  const startTimeA = String(a.시작시간 || '').padStart(4, '0');
+                  const startTimeB = String(b.시작시간 || '').padStart(4, '0');
+                  const timeA = timeToNumber(startTimeA);
+                  const timeB = timeToNumber(startTimeB);
+                  return timeA - timeB;
+              }
+              
+              return managerCompare;
+          });
+          
+          // 필터링된 데이터로 테이블 생성
+          filteredJournals.forEach(journal => {
+              const row = document.createElement('tr');
+              
+              // 필요한 데이터 컬럼 추출
+              const columns = ['날짜', '시작시간', '종료시간', '직원명', '활동명', '코드', '회원번호', '회원명', '참여도', '수행도', '만족도', '관찰사항'];
+              
+              columns.forEach(key => {
+                  const cell = document.createElement('td');
+                  if (key === '날짜') {
+                      // 날짜 포맷 처리 (필요시)
+                      cell.textContent = journal[key] || '';
+                  } else if (key === '시작시간' || key === '종료시간') {
+                      // 시간 데이터를 4자리 문자열로 표시 (작은따옴표 제거)
+                      cell.textContent = String(journal[key] || '').padStart(4, '0');
+                  } else {
+                      cell.textContent = journal[key] || '';
+                  }
+                  row.appendChild(cell);
+              });
+              
+              // 더블클릭 이벤트: 일지 데이터를 폼에 채우기
+              row.addEventListener('dblclick', () => {
+                  resetAllFields();
+                  document.getElementById('journalID').value = journal.일지_id || ''; // 일지_ID
+                  document.getElementById('journalDate').value = journal.날짜 || ''; // 날짜
+                  document.getElementById('journalStartTime').value = String(journal.시작시간 || '').padStart(4, '0'); // 시작시간
+                  document.getElementById('journalEndTime').value = String(journal.종료시간 || '').padStart(4, '0'); // 종료시간
+                  document.getElementById('journalEmployeeNumber').value = journal.직원번호 || ''; // 직원번호
+                  document.getElementById('journalManager').value = journal.직원명 || ''; // 직원명
+                  document.getElementById('journalActivityName').value = journal.활동명 || ''; // 활동명
+                  document.getElementById('journalCode').value = journal.코드 || ''; // 코드
+                  document.getElementById('journalMemberNumber').value = journal.회원번호 || ''; // 회원번호
+                  document.getElementById('journalName').value = journal.회원명 || ''; // 회원명
+                  document.getElementById('journalParticipation').value = journal.참여도 || '5'; // 참여도
+                  document.getElementById('journalPerformance').value = journal.수행도 || '5'; // 수행도
+                  document.getElementById('journalSatisfaction').value = journal.만족도 || '5'; // 만족도
+                  document.getElementById('journalObservations').value = journal.관찰사항 || ''; // 관찰사항
+                  
+                  // 기존 Journal 수정 버튼과 삭제 버튼 활성화
+                  updateButtonStates(false, true, true);
+              });
+              
+              tableBody.appendChild(row);
+          });
+      }
+      
+      // 직원번호로 Plan 테이블 필터링하는 함수
+      function filterPlanByEmployee() {
+          const employeeFilter = document.getElementById('employeeFilter').value.trim();
+          console.log("[필터] Plan - 직원번호 필터 적용:", employeeFilter);
+          
+          // 현재 선택된 날짜 가져오기
+          const selectedDate = changeDate(document.getElementById("datePickerPage2").value);
+          if (!selectedDate) {
+              console.log("[필터] Plan - 날짜가 선택되지 않았습니다.");
+              return;
+          }
+          
+          // 테이블 내용 초기화
+          const tableBody = document.getElementById('plan-table-body');
+          tableBody.innerHTML = '';
+          
+          // 선택된 날짜가 없으면 return
+          if (!selectedDate) {
+              console.log("날짜가 선택되지 않았습니다.");
+              return;
+          }
+          
+          // 날짜에 해당하는 계획 데이터 필터링
+          let filteredPlans = dailyPlanAll.filter((plan) => {
+              return plan.날짜 == selectedDate; // 등호 두 개만 사용
+          });
+          
+          // 직원번호로 추가 필터링
+          if (employeeFilter !== '') {
+              filteredPlans = filteredPlans.filter((plan) => {
+                  return String(plan.직원번호 || '').includes(employeeFilter) || 
+                         String(plan.직원명 || '').toLowerCase().includes(employeeFilter.toLowerCase());
+              });
+          }
+          
+          console.log("[필터] 필터링된 계획 데이터:", filteredPlans.length + "개 항목");
+          
+          if (filteredPlans.length === 0) {
+              const row = document.createElement('tr');
+              const cell = document.createElement('td');
+              cell.colSpan = 6; // 컬럼 수에 맞게 설정
+              cell.textContent = employeeFilter ? 
+                                 '해당 직원의 계획 데이터가 없습니다.' : 
+                                 '해당 날짜의 계획 데이터가 없습니다.';
+              cell.style.textAlign = 'center';
+              cell.style.padding = '10px';
+              row.appendChild(cell);
+              tableBody.appendChild(row);
+              return;
+          }
+          
+          // 직원명와 시작시간 기준으로 정렬
+          filteredPlans.sort((a, b) => {
+              // 먼저 직원명로 정렬
+              const managerA = String(a.직원명 || '');
+              const managerB = String(b.직원명 || '');
+              const managerCompare = managerA.localeCompare(managerB);
+              
+              // 직원명가 같으면 시작시간으로 정렬
+              if (managerCompare === 0) {
+                  // 시간을 숫자로 변환하여 비교
+                  const startTimeA = String(a.시작시간 || '').padStart(4, '0');
+                  const startTimeB = String(b.시작시간 || '').padStart(4, '0');
+                  const timeA = timeToNumber(startTimeA);
+                  const timeB = timeToNumber(startTimeB);
+                  return timeA - timeB;
+              }
+              
+              return managerCompare;
+          });
+          
+          // 필터링된 데이터로 테이블 생성
+          filteredPlans.forEach(plan => {
+              const row = document.createElement('tr');
+              
+              // 필요한 데이터 추출
+              const columns = ['날짜', '시작시간', '종료시간', '직원명', '활동명', '생활영역'];
+              
+              columns.forEach(key => {
+                  const cell = document.createElement('td');
+                  if (key === '날짜') {
+                      // 날짜 포맷 처리 (필요시)
+                      cell.textContent = plan[key] || '';
+                  } else if (key === '시작시간' || key === '종료시간') {
+                      // 시간 데이터를 4자리 문자열로 표시 (작은따옴표 제거)
+                      cell.textContent = String(plan[key] || '').padStart(4, '0');
+                  } else {
+                      cell.textContent = plan[key] || '';
+                  }
+                  row.appendChild(cell);
+              });
+              
+              // 더블클릭 이벤트: Plan to Journal 입력 필드에 데이터 전달
+              row.addEventListener('dblclick', () => {
+                  // Plan to Journal 입력 필드에 데이터 전달
+                  resetAllFields();
+                  document.getElementById('journalDate').value = plan.날짜 || ''; // 날짜
+                  document.getElementById('journalStartTime').value = String(plan.시작시간 || '').padStart(4, '0'); // 시작시간
+                  document.getElementById('journalEndTime').value = String(plan.종료시간 || '').padStart(4, '0'); // 종료시간
+                  document.getElementById('journalEmployeeNumber').value = plan.직원번호 || ''; // 직원번호
+                  document.getElementById('journalManager').value = plan.직원명 || ''; // 직원명
+                  document.getElementById('journalActivityName').value = plan.활동명 || ''; // 활동명
+                  document.getElementById('journalCode').value = plan.생활영역 || ''; // 생활영역(코드)
+              });
+              
+              tableBody.appendChild(row);
+          });
+      }
+
+      // 직원 필터 변경 시 양쪽 테이블 모두 업데이트
+      function filterJournalAndPlanByEmployee() {
+          // 일지 테이블 필터링
+          filterJournalByEmployee();
+          
+          // 계획 테이블 필터링
+          filterPlanByEmployee();
+      }
+
+      // employeeFilter에 키 이벤트 핸들러 수정
+      document.getElementById('employeeFilter').addEventListener('keyup', filterJournalAndPlanByEmployee);
+    </script>
+  </body>
+</html>
+
