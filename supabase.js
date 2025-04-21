@@ -12,7 +12,7 @@ function initsupabase(){
   return supabaseClient;
 }
 
-supabase = window.supabase;
+window.supabase=initsupabase();
 
 document.addEventListener('DOMContentLoaded', function() {
   initsupabase();
