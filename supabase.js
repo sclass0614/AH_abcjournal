@@ -5,8 +5,17 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // 전역 Supabase 클라이언트 생성
 let supabaseClient;
 
+function initsupabase(){
+  if (!supabaseClient) {
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+  return supabaseClient;
+}
+
+supabase = window.supabase;
+
 document.addEventListener('DOMContentLoaded', function() {
-  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  initsupabase();
   
   // 초기화 후 실행
   initialize();
