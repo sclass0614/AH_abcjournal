@@ -744,6 +744,67 @@
           return dateStr.replace(/-/g, "");
         }
         
+      // 시간(HHMM)을 분으로 변환하는 함수
+      function convertTimeToMinutes(timeStr) {
+          const hours = parseInt(timeStr.substring(0, 2));
+          const minutes = parseInt(timeStr.substring(2, 4));
+          return hours * 60 + minutes;
+      }
+
+      // 시간(HHMM)을 HH:MM 형식으로 변환하는 함수
+      function formatTime(timeStr) {
+          return `${timeStr.substring(0, 2)}:${timeStr.substring(2, 4)}`;
+      }
+
+      // 회원번호 기준으로 시간 중복을 체크하는 함수
+      function checkRightTimeAndMemberNum() {
+          const journalDate = document.getElementById("journalDate").value;
+          const startTime = document.getElementById("journalStartTime").value.padStart(4, '0');
+          const endTime = document.getElementById("journalEndTime").value.padStart(4, '0');
+          const memberNumber = document.getElementById("journalMemberNumber").value;
+          const currentJournalId = document.getElementById("journalID").value;
+          
+          // 입력한 시작시간, 종료시간을 분 단위로 변환
+          const inputStartMinutes = convertTimeToMinutes(startTime);
+          const inputEndMinutes = convertTimeToMinutes(endTime);
+          
+          // 현재 선택된 날짜에 해당하는 일지들만 필터링
+          const sameDateJournals = dailyjournalAll.filter(journal => journal.날짜 == journalDate && journal.회원번호 === memberNumber);
+          
+          // 중복 검사
+          for (const journal of sameDateJournals) {
+              // 수정 시 자기 자신의 일지는 건너뜀
+              if (currentJournalId && journal.일지_id === currentJournalId) {
+                  continue;
+              }
+              
+              // 일지의 시작시간과 종료시간을 분 단위로 변환
+              const journalStartTime = String(journal.시작시간 || '').padStart(4, '0');
+              const journalEndTime = String(journal.종료시간 || '').padStart(4, '0');
+              const journalStartMinutes = convertTimeToMinutes(journalStartTime);
+              const journalEndMinutes = convertTimeToMinutes(journalEndTime);
+              
+              // 중복 체크 로직:
+              // 1. 입력 시간이 기존 일지 시간 범위 내에 있는 경우
+              // 2. 기존 일지 시간이 입력 시간 범위 내에 있는 경우
+              // 3. 입력 시간이 기존 일지 시간을 완전히 포함하는 경우
+              if ((inputStartMinutes >= journalStartMinutes && inputStartMinutes < journalEndMinutes) ||
+                  (inputEndMinutes > journalStartMinutes && inputEndMinutes <= journalEndMinutes) ||
+                  (inputStartMinutes <= journalStartMinutes && inputEndMinutes >= journalEndMinutes)) {
+                  
+                  // HH:MM 형식으로 변환하여, 회원명과 시간을 표시
+                  const journalStartTimeFormatted = formatTime(journalStartTime);
+                  const journalEndTimeFormatted = formatTime(journalEndTime);
+                  const memberName = journal.회원명;
+                  
+                  showCustomAlert(`${memberName}(${memberNumber}) 회원님의 기존 일지 (${journalStartTimeFormatted}~${journalEndTimeFormatted})와 시간이 중복됩니다.`);
+                  return false;
+              }
+          }
+          
+          return true;
+      }
+        
       // 일지(Journal) 입력 필드 유효성 검사 함수
       function validateJournalInputs() {
           const requiredFields = [
@@ -805,6 +866,11 @@
               document.getElementById(field.id).focus();
               return false;
             }
+          }
+          
+          // 동일한 회원번호에 대한 시간 중복 검사
+          if (!checkRightTimeAndMemberNum()) {
+            return false;
           }
 
         return true;
@@ -1287,7 +1353,7 @@
           filteredJournals.forEach(journal => {
               const row = document.createElement('tr');
               
-              // 필요한 데이터 컬럼 추출
+              // 필요한 데이터 추출
               const columns = ['날짜', '시작시간', '종료시간', '직원명', '활동명', '코드', '회원번호', '회원명', '참여도', '수행도', '만족도', '관찰사항'];
               
               columns.forEach(key => {
@@ -1330,6 +1396,18 @@
           });
       }
       
+      // 직원 필터 변경 시 양쪽 테이블 모두 업데이트
+      function filterJournalAndPlanByEmployee() {
+          // 일지 테이블 필터링
+          filterJournalByEmployee();
+          
+          // 계획 테이블 필터링
+          filterPlanByEmployee();
+      }
+
+      // employeeFilter에 키 이벤트 핸들러 수정
+      document.getElementById('employeeFilter').addEventListener('keyup', filterJournalAndPlanByEmployee);
+
       // 직원번호로 Plan 테이블 필터링하는 함수
       function filterPlanByEmployee() {
           const employeeFilter = document.getElementById('employeeFilter').value.trim();
@@ -1438,18 +1516,6 @@
               tableBody.appendChild(row);
           });
       }
-
-      // 직원 필터 변경 시 양쪽 테이블 모두 업데이트
-      function filterJournalAndPlanByEmployee() {
-          // 일지 테이블 필터링
-          filterJournalByEmployee();
-          
-          // 계획 테이블 필터링
-          filterPlanByEmployee();
-      }
-
-      // employeeFilter에 키 이벤트 핸들러 수정
-      document.getElementById('employeeFilter').addEventListener('keyup', filterJournalAndPlanByEmployee);
     </script>
   </body>
 </html>
