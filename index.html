@@ -379,8 +379,8 @@
       let memberall = []; // 모든 회원 데이터를 저장하는 배열
 
       // Supabase 기능 호출을 위한 유틸리티 함수들
-      async function getPlanAllPromise() {
-          return await getPlanAll();
+      async function getPlanAllPromise(date = null) {
+          return await getPlanAll(date);
       }
 
       async function getJournalAllPromise() {
@@ -397,7 +397,7 @@
           try {
               // 네 가지 작업을 병렬로 실행하기 위해 Promise.all 사용
               const results = await Promise.all([
-                  getPlanAllPromise(),
+                  getPlanAllPromise(), // 초기화 시에는 전체 데이터 로드
                   getJournalAllPromise(),
                   getMembersPromise()
               ]);
@@ -419,10 +419,10 @@
           }
       }
 
-      async function getPlanAll_id() {
+      async function getPlanAll_id(date = null) {
           showLoading();
           try {
-              dailyPlanAll = await getPlanAllPromise();
+              dailyPlanAll = await getPlanAllPromise(date);
               makeTable_plan();
               console.log("계획 데이터 새로고침 완료");
           } catch (error) {
@@ -466,7 +466,7 @@
       function makeTable_plan() {
         const selectedDate = changeDate(document.getElementById("datePickerPage2").value);
         console.log("선택된 날짜:", selectedDate);
-        console.log("전체 데이터:", dailyPlanAll);
+        console.log("계획 데이터:", dailyPlanAll);
 
         // 테이블 내용 초기화
         const tableBody = document.getElementById('plan-table-body');
@@ -478,12 +478,9 @@
           return;
         }
         
-        // 날짜에 해당하는 계획 데이터 필터링
-        const filteredPlans = dailyPlanAll.filter((plan) => {
-          console.log("계획 날짜:", plan.날짜, "변환된 날짜:", plan.날짜);
-          return plan.날짜 == selectedDate; // 등호 두 개만 사용
-        });
-        console.log("필터링된 계획 데이터:", filteredPlans.length + "개 항목");
+        // dailyPlanAll은 이미 특정 날짜로 필터링된 데이터이므로 추가 필터링 불필요
+        const filteredPlans = dailyPlanAll;
+        console.log("표시할 계획 데이터:", filteredPlans.length + "개 항목");
         
         if (filteredPlans.length === 0) {
           const row = document.createElement('tr');
@@ -569,15 +566,17 @@
           filterJournalByEmployee();
       }
 
-      function journalSearch() {
+      async function journalSearch() {
         const date = document.getElementById('datePickerPage2').value;
         const dateYmd = changeDate(date); // YYYY-MM-DD를 YYYYMMDD로 변환
         
         // 직원 필터 초기화
         document.getElementById('employeeFilter').value = '';
         
-        // Daily Plan Summary 테이블 업데이트
-        makeTable_plan();
+        // 선택된 날짜의 계획 데이터만 가져오기
+        if (dateYmd) {
+          await getPlanAll_id(dateYmd);
+        }
         
         // Daily Journal 테이블 업데이트
         makeTable_journal();
@@ -650,15 +649,21 @@
       }
 
       // 페이지 로드 완료 후 초기화 실행
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', async function() {
         const today = new Date().toISOString().split("T")[0];
+        const todayYmd = changeDate(today);
         document.getElementById("datePickerPage2").value = today;
 
         // 초기 버튼 상태 설정 - 저장 버튼만 활성화
         updateButtonStates(true, false, false);
 
         // 초기화 함수 호출 (한 번만 호출)
-        initialize();
+        await initialize();
+        
+        // 오늘 날짜의 계획 데이터 로드
+        if (todayYmd) {
+          await getPlanAll_id(todayYmd);
+        }
         
         // 회원명 입력 필드 클릭 이벤트 리스너
         document.getElementById('journalName').addEventListener('click', showMemberModal);
@@ -1407,7 +1412,7 @@
 
       // employeeFilter에 키 이벤트 핸들러 수정
       document.getElementById('employeeFilter').addEventListener('keyup', filterJournalAndPlanByEmployee);
-
+      
       // 직원번호로 Plan 테이블 필터링하는 함수
       function filterPlanByEmployee() {
           const employeeFilter = document.getElementById('employeeFilter').value.trim();
@@ -1424,16 +1429,8 @@
           const tableBody = document.getElementById('plan-table-body');
           tableBody.innerHTML = '';
           
-          // 선택된 날짜가 없으면 return
-          if (!selectedDate) {
-              console.log("날짜가 선택되지 않았습니다.");
-              return;
-          }
-          
-          // 날짜에 해당하는 계획 데이터 필터링
-          let filteredPlans = dailyPlanAll.filter((plan) => {
-              return plan.날짜 == selectedDate; // 등호 두 개만 사용
-          });
+          // dailyPlanAll은 이미 특정 날짜로 필터링된 데이터이므로 날짜 필터링 불필요
+          let filteredPlans = dailyPlanAll;
           
           // 직원번호로 추가 필터링
           if (employeeFilter !== '') {

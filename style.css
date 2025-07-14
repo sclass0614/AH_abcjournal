@@ -859,7 +859,7 @@ input[type="date"][readonly] {
 
 /* Plan 요약 테이블 컨테이너 */
 .plan-table-container {
-    max-height: 280px;
+    max-height: 320px;
     overflow-y: auto;
 }
 
