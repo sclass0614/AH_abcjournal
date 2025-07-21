@@ -17,7 +17,7 @@
     <script src="supabase.js"></script>
 
     <!-- 3. authCheck.js (접속 검사) -->
-    <script type="module" src="https://sclass0614.github.io/authCheck/authCheck.js"></script>
+    <!-- <script type="module" src="https://sclass0614.github.io/authCheck/authCheck.js"></script> -->
   </head>
 
   <body>
@@ -383,8 +383,8 @@
           return await getPlanAll(date);
       }
 
-      async function getJournalAllPromise() {
-          return await getJournalAll();
+      async function getJournalAllPromise(date = null) {
+          return await getJournalAll(date);
       }
 
       async function getMembersPromise() {
@@ -395,22 +395,9 @@
           showLoading(); // 초기화 시작 시 로딩 표시
           
           try {
-              // 네 가지 작업을 병렬로 실행하기 위해 Promise.all 사용
-              const results = await Promise.all([
-                  getPlanAllPromise(), // 초기화 시에는 전체 데이터 로드
-                  getJournalAllPromise(),
-                  getMembersPromise()
-              ]);
-              
-              // 결과 할당
-              dailyPlanAll = results[0];
-              dailyjournalAll = results[1];
-              memberall = results[2];
-              
-              // 데이터 로드 후 테이블 생성
-              makeTable_plan();
-              makeTable_journal();
-              console.log("모든 데이터 로드 완료");
+              // 회원 데이터만 로드 (계획과 일지 데이터는 날짜별로 별도 로드)
+              memberall = await getMembersPromise();
+              console.log("회원 데이터 로드 완료");
           } catch (error) {
               console.error("초기화 중 오류 발생:", error);
               showCustomAlert("데이터를 불러오는데 실패했습니다: " + error);
@@ -422,7 +409,9 @@
       async function getPlanAll_id(date = null) {
           showLoading();
           try {
+              console.log("[계획데이터] 요청 날짜:", date);
               dailyPlanAll = await getPlanAllPromise(date);
+              console.log("[계획데이터] 로드 완료, 항목 수:", dailyPlanAll.length);
               makeTable_plan();
               console.log("계획 데이터 새로고침 완료");
           } catch (error) {
@@ -433,12 +422,15 @@
           }
       }
 
-      async function getJournalAll_id() {
+      async function getJournalAll_id(date = null) {
           showLoading();
           try {
+              console.log("[일지데이터] 요청 날짜:", date);
               console.log("getJournalAll_id: getJournalAllPromise 호출 전");
-              dailyjournalAll = await getJournalAllPromise();
+              dailyjournalAll = await getJournalAllPromise(date);
+              console.log("[일지데이터] 로드 완료, 항목 수:", dailyjournalAll.length);
               console.log("getJournalAll_id: 데이터 로드 완료, 항목 수:", dailyjournalAll.length);
+              makeTable_journal();
               console.log("일지 데이터 새로고침 완료");
               return true;
           } catch (error) {
@@ -576,14 +568,12 @@
         // 선택된 날짜의 계획 데이터만 가져오기
         if (dateYmd) {
           await getPlanAll_id(dateYmd);
+          // 선택된 날짜의 일지 데이터만 가져오기
+          await getJournalAll_id(dateYmd);
         }
         
         // Daily Journal 테이블 업데이트
         makeTable_journal();
-        
-        // 일지 데이터 필터링 (로그용)
-        const filteredJournal = dailyjournalAll.filter(journal => journal.날짜 == dateYmd);
-        console.log("필터링된 일지 데이터:", filteredJournal);
       }
 
       // 로딩 표시 함수
@@ -648,22 +638,44 @@
           console.log("버튼 상태 업데이트:", { saveEnabled, modifyEnabled, deleteEnabled });
       }
 
+      // 버튼 일시적 비활성화 함수 (중복 클릭 방지)
+      function disableButtonTemporarily(buttonId, duration = 2000) {
+          const button = document.getElementById(buttonId);
+          if (button) {
+              button.disabled = true;
+              setTimeout(() => {
+                  button.disabled = false;
+              }, duration);
+          }
+      }
+
       // 페이지 로드 완료 후 초기화 실행
       document.addEventListener('DOMContentLoaded', async function() {
+        console.log("[초기화] 페이지 로드 시작");
+        
         const today = new Date().toISOString().split("T")[0];
         const todayYmd = changeDate(today);
         document.getElementById("datePickerPage2").value = today;
+        
+        console.log("[초기화] 오늘 날짜 설정:", today, "->", todayYmd);
 
         // 초기 버튼 상태 설정 - 저장 버튼만 활성화
         updateButtonStates(true, false, false);
 
-        // 초기화 함수 호출 (한 번만 호출)
+        // 1단계: 회원 데이터만 초기화 (날짜와 무관한 기본 데이터)
+        console.log("[초기화] 1단계: 회원 데이터 로드 시작");
         await initialize();
         
-        // 오늘 날짜의 계획 데이터 로드
+        // 2단계: 오늘 날짜의 계획/일지 데이터 로드
+        console.log("[초기화] 2단계: 오늘 날짜 데이터 로드 시작");
         if (todayYmd) {
+          console.log("[초기화] 오늘 날짜의 계획 데이터 로드:", todayYmd);
           await getPlanAll_id(todayYmd);
+          console.log("[초기화] 오늘 날짜의 일지 데이터 로드:", todayYmd);
+          await getJournalAll_id(todayYmd);
         }
+        
+        console.log("[초기화] 페이지 로드 완료");
         
         // 회원명 입력 필드 클릭 이벤트 리스너
         document.getElementById('journalName').addEventListener('click', showMemberModal);
@@ -726,8 +738,15 @@
             // 직원 필터 초기화
             document.getElementById('employeeFilter').value = '';
             
-            await initialize();
-            journalSearch(); // 현재 선택된 날짜로 테이블 필터링
+            // 현재 선택된 날짜의 데이터만 새로고침
+            const currentDate = changeDate(document.getElementById("datePickerPage2").value);
+            if (currentDate) {
+                await getPlanAll_id(currentDate);
+                await getJournalAll_id(currentDate);
+            }
+            
+            // 회원 데이터 새로고침
+            await getMember_id();
         });
         const tableHeaders = document.querySelectorAll('#daily-journal-table th, #daily-plan-summary-table th');
         tableHeaders.forEach(header => {
@@ -950,7 +969,8 @@
                   
                   // 일지 데이터 새로고침
                   console.log("[진행] appendJournal_id - 일지 데이터 새로고침 시작");
-                  const journalData = await getJournalAllPromise();
+                  const currentDate = changeDate(document.getElementById("datePickerPage2").value);
+                  const journalData = await getJournalAllPromise(currentDate);
                   console.log("[진행] appendJournal_id - 새로 받은 일지 데이터 개수:", journalData.length);
                   dailyjournalAll = journalData;
                   
@@ -1026,7 +1046,8 @@
                               
                               // 일지 데이터 새로고침
                               console.log("[진행] updateJournal_id - 일지 데이터 새로고침 시작");
-                              const journalData = await getJournalAllPromise();
+                              const currentDate = changeDate(document.getElementById("datePickerPage2").value);
+                              const journalData = await getJournalAllPromise(currentDate);
                               console.log("[진행] updateJournal_id - 새로 받은 일지 데이터 개수:", journalData.length);
                               dailyjournalAll = journalData;
                               
@@ -1087,7 +1108,8 @@
                               
                               // 일지 데이터 새로고침
                               console.log("[진행] deleteJournalrow_id - 일지 데이터 새로고침 시작");
-                              const journalData = await getJournalAllPromise();
+                              const currentDate = changeDate(document.getElementById("datePickerPage2").value);
+                              const journalData = await getJournalAllPromise(currentDate);
                               console.log("[진행] deleteJournalrow_id - 새로 받은 일지 데이터 개수:", journalData.length);
                               dailyjournalAll = journalData;
                               
@@ -1301,14 +1323,18 @@
               return;
           }
           
+          console.log("[디버그] 선택된 날짜:", selectedDate);
+          console.log("[디버그] dailyjournalAll 전체 데이터:", dailyjournalAll);
+          console.log("[디버그] dailyjournalAll 데이터 개수:", dailyjournalAll.length);
+          
           // 테이블 내용 초기화
           const tableBody = document.getElementById('journal-table-body');
           tableBody.innerHTML = '';
           
-          // 날짜에 해당하는 일지 데이터 필터링
-          let filteredJournals = dailyjournalAll.filter((journal) => {
-              return journal.날짜 == selectedDate; // 날짜 필터링 (등호 2개 유지)
-          });
+          // dailyjournalAll은 이미 특정 날짜로 필터링된 데이터이므로 추가 날짜 필터링 불필요
+          let filteredJournals = dailyjournalAll;
+          
+          console.log("[디버그] 필터링 전 데이터:", filteredJournals);
           
           // 직원번호로 추가 필터링
           if (employeeFilter !== '') {
@@ -1319,6 +1345,7 @@
           }
           
           console.log("[필터] 필터링된 일지 데이터:", filteredJournals.length + "개 항목");
+          console.log("[디버그] 최종 표시할 데이터:", filteredJournals);
           
           if (filteredJournals.length === 0) {
               const row = document.createElement('tr');

@@ -111,10 +111,10 @@ async function getPlanAll(date = null) {
 }
 
 /**
- * 모든 활동 일지 데이터를 가져오는 함수
+ * 모든 활동 일지 데이터를 가져오는 함수 (기존 버전 - 백업용)
  * @return {Promise<Array>} 활동 일지 데이터 배열
  */
-async function getJournalAll() {
+async function getJournalAllOld() {
   try {
     if (!supabaseClient) {
       supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -123,6 +123,55 @@ async function getJournalAll() {
     const { data, error } = await supabaseClient
       .from('activities_journal')
       .select('*');
+
+    if (error) {
+      console.error('일지 데이터 로드 오류:', error);
+      return [];
+    }
+
+    console.log("변환 전:", data); // 변환 전 데이터 확인
+
+    // 날짜 형식 변환 (필요한 경우)
+    const formattedData = data.map(row => {
+      // 날짜 처리 (int4에서 문자열로 변환)
+      const dateStr = row.날짜 ? row.날짜.toString() : '';
+      
+      return {
+        ...row,
+        날짜: dateStr
+      };
+    });
+
+    console.log("변환 후:", formattedData); // 변환 후 데이터 확인
+    return formattedData;
+  } catch (error) {
+    console.error('오류 발생:', error);
+    return [];
+  }
+}
+
+/**
+ * 특정 날짜의 활동 일지 데이터를 가져오는 함수
+ * @param {string} date - 조회할 날짜 (YYYYMMDD 형식)
+ * @return {Promise<Array>} 활동 일지 데이터 배열
+ */
+async function getJournalAll(date = null) {
+  try {
+    if (!supabaseClient) {
+      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+    
+    let query = supabaseClient
+      .from('activities_journal')
+      .select('*');
+    
+    // 날짜가 제공된 경우 필터링
+    if (date) {
+      const dateInt = parseInt(date);
+      query = query.eq('날짜', dateInt);
+    }
+    
+    const { data, error } = await query;
 
     if (error) {
       console.error('일지 데이터 로드 오류:', error);
