@@ -445,19 +445,19 @@
         }
         
         filteredPlans.sort((a, b) => {
-          const managerA = String(a.직원명 || '');
-          const managerB = String(b.직원명 || '');
-          const managerCompare = managerA.localeCompare(managerB);
+          const startTimeA = String(a.시작시간 || '').padStart(4, '0');
+          const startTimeB = String(b.시작시간 || '').padStart(4, '0');
+          const timeA = timeToNumber(startTimeA);
+          const timeB = timeToNumber(startTimeB);
+          const timeCompare = timeA - timeB;
           
-          if (managerCompare === 0) {
-            const startTimeA = String(a.시작시간 || '').padStart(4, '0');
-            const startTimeB = String(b.시작시간 || '').padStart(4, '0');
-            const timeA = timeToNumber(startTimeA);
-            const timeB = timeToNumber(startTimeB);
-            return timeA - timeB;
+          if (timeCompare === 0) {
+            const managerA = String(a.직원명 || '');
+            const managerB = String(b.직원명 || '');
+            return managerA.localeCompare(managerB);
           }
           
-          return managerCompare;
+          return timeCompare;
         });
         
         filteredPlans.forEach(plan => {
@@ -674,6 +674,11 @@
           return hours * 60 + minutes;
       }
 
+      function timeToNumber(timeStr) {
+          if (!timeStr) return 0;
+          return parseInt(timeStr);
+      }
+
       function formatTime(timeStr) {
           return `${timeStr.substring(0, 2)}:${timeStr.substring(2, 4)}`;
       }
@@ -836,6 +841,25 @@
                   dailyjournalAll = journalData;
                   
                   makeTable_journal();
+                  
+                  // 테이블 스크롤을 맨 아래로 이동
+                  setTimeout(() => {
+                      // 여러 방법을 시도하여 확실히 스크롤 이동
+                      const journalTable = document.getElementById('daily-journal-table');
+                      const journalTableContainer = journalTable ? journalTable.closest('.table-container') : null;
+                      
+                      if (journalTableContainer) {
+                          // 방법 1: scrollTop 설정
+                          journalTableContainer.scrollTop = journalTableContainer.scrollHeight;
+                          
+                          // 방법 2: 마지막 행으로 스크롤
+                          const tbody = document.getElementById('journal-table-body');
+                          const lastRow = tbody ? tbody.lastElementChild : null;
+                          if (lastRow) {
+                              lastRow.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+                          }
+                      }
+                  }, 300);
                   
                   resetAllFields();
                   
@@ -1122,19 +1146,19 @@
           }
           
           filteredJournals.sort((a, b) => {
-              const managerA = String(a.직원명 || '');
-              const managerB = String(b.직원명 || '');
-              const managerCompare = managerA.localeCompare(managerB);
+              const startTimeA = String(a.시작시간 || '').padStart(4, '0');
+              const startTimeB = String(b.시작시간 || '').padStart(4, '0');
+              const timeA = timeToNumber(startTimeA);
+              const timeB = timeToNumber(startTimeB);
+              const timeCompare = timeA - timeB;
               
-              if (managerCompare === 0) {
-                  const startTimeA = String(a.시작시간 || '').padStart(4, '0');
-                  const startTimeB = String(b.시작시간 || '').padStart(4, '0');
-                  const timeA = timeToNumber(startTimeA);
-                  const timeB = timeToNumber(startTimeB);
-                  return timeA - timeB;
+              if (timeCompare === 0) {
+                  const managerA = String(a.직원명 || '');
+                  const managerB = String(b.직원명 || '');
+                  return managerA.localeCompare(managerB);
               }
               
-              return managerCompare;
+              return timeCompare;
           });
           
           filteredJournals.forEach(journal => {
@@ -1221,19 +1245,19 @@
           }
           
           filteredPlans.sort((a, b) => {
-              const managerA = String(a.직원명 || '');
-              const managerB = String(b.직원명 || '');
-              const managerCompare = managerA.localeCompare(managerB);
+              const startTimeA = String(a.시작시간 || '').padStart(4, '0');
+              const startTimeB = String(b.시작시간 || '').padStart(4, '0');
+              const timeA = timeToNumber(startTimeA);
+              const timeB = timeToNumber(startTimeB);
+              const timeCompare = timeA - timeB;
               
-              if (managerCompare === 0) {
-                  const startTimeA = String(a.시작시간 || '').padStart(4, '0');
-                  const startTimeB = String(b.시작시간 || '').padStart(4, '0');
-                  const timeA = timeToNumber(startTimeA);
-                  const timeB = timeToNumber(startTimeB);
-                  return timeA - timeB;
+              if (timeCompare === 0) {
+                  const managerA = String(a.직원명 || '');
+                  const managerB = String(b.직원명 || '');
+                  return managerA.localeCompare(managerB);
               }
               
-              return managerCompare;
+              return timeCompare;
           });
           
           filteredPlans.forEach(plan => {
